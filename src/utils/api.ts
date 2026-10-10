@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/d1";
 import type { Context } from "hono";
-import type { Services } from "../core/container";
+import type { Services } from "../services";
 
 export type Env = {
   Bindings: { DB: D1Database };

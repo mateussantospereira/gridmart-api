@@ -1,17 +1,13 @@
 import { and, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
-import { accessLogs, sales, users, visits } from "../../db/schema";
-import type { DB } from "../../utils/api";
-import type { DoorGateway } from "../../adapters/door";
+import { accessLogs, sales, users, visits } from "../db/schema";
+import type { DB } from "../utils/api";
 
 const EXIT_TOKEN_TTL_MS = 25_000;
 const normalize = (cpf: string) => cpf.replace(/\D/g, "");
 
 export class AccessService {
-  constructor(
-    private db: DB,
-    private door: DoorGateway,
-  ) {}
+  constructor(private db: DB) {}
 
   /** Só responde se o CPF já existe; usado para decidir se pede o nome. */
   async check(cpfRaw: string) {
@@ -22,14 +18,14 @@ export class AccessService {
     return { registered: true, allowed: !user.isBlocked, name: user.name };
   }
 
-  /** Cadastro rápido do primeiro acesso (não abre a porta). */
+  /** Cadastro do primeiro acesso. */
   async register(cpfRaw: string, name: string) {
     const cpf = normalize(cpfRaw);
     const user = await this.db.insert(users).values({ cpf, name }).returning().get();
     return { registered: true, allowed: true, name: user.name };
   }
 
-  /** Abre a porta de entrada e cria a visita (a pessoa passa a estar "dentro"). */
+  /** Marca a entrada: cria a visita (a pessoa passa a estar "dentro"). */
   async enter(cpfRaw: string) {
     const cpf = normalize(cpfRaw);
     const user = await this.db.select().from(users).where(eq(users.cpf, cpf)).get();
@@ -49,9 +45,8 @@ export class AccessService {
 
     const visit = await this.db.insert(visits).values({ userId: user.id }).returning().get();
     await this.log(cpf, "GRANTED");
-    const command = await this.door.requestOpen("ENTRY", visit.id);
 
-    return { visitId: visit.id, name: user.name, door: command };
+    return { visitId: visit.id, name: user.name };
   }
 
   /** Gera o token de uso único para a saída (só depois do pagamento confirmado). */
@@ -70,7 +65,7 @@ export class AccessService {
     return { token, expiresAt };
   }
 
-  /** Consome o token (uso único), fecha a visita e abre a porta de saída. */
+  /** Consome o token (uso único) e fecha a visita. */
   async exit(token: string) {
     const visit = await this.db.select().from(visits).where(eq(visits.exitToken, token)).get();
     if (!visit || visit.status !== "OPEN") throw new HTTPException(403, { message: "Token de saída inválido" });
@@ -84,9 +79,8 @@ export class AccessService {
       .where(eq(visits.id, visit.id))
       .run();
     await this.log(user?.cpf ?? String(visit.userId), "GRANTED");
-    const command = await this.door.requestOpen("EXIT", visit.id);
 
-    return { visitId: visit.id, door: command };
+    return { visitId: visit.id };
   }
 
   private log(cpf: string, status: "GRANTED" | "DENIED") {

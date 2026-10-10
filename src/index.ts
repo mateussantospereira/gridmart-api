@@ -1,30 +1,28 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { createDb, type DB, type Env } from "./utils/api";
+import { createServices } from "./services";
 import { errorHandler } from "./middlewares/errorHandler";
-import { withServices } from "./core/container";
-import { productRoutes } from "./modules/products/products.routes";
-import { accessRoutes } from "./modules/access/access.routes";
-import { saleRoutes } from "./modules/sales/sales.routes";
-import { deviceRoutes } from "./modules/devices/devices.routes";
-import { pixWebhookRoutes } from "./modules/webhooks/pix.routes";
-import type { DB, Env } from "./utils/api";
+import { productRoutes } from "./routes/products";
+import { accessRoutes } from "./routes/access";
+import { saleRoutes } from "./routes/sales";
 
-export interface AppOptions {
-  /** Permite injetar outro banco (ex.: SQLite em memória nos testes). */
-  makeDb?: (c: Context<Env>) => DB;
-}
-
-export function createApp({ makeDb }: AppOptions = {}) {
+/**
+ * Monta o app. O `makeDb` permite trocar o banco nos testes
+ * (SQLite em memória) sem depender do Cloudflare.
+ */
+export function createApp(makeDb: (c: Context<Env>) => DB = (c) => createDb(c.env.DB)) {
   const app = new Hono<Env>();
 
-  app.use(withServices(makeDb));
+  app.use(async (c, next) => {
+    c.set("services", createServices(makeDb(c)));
+    await next();
+  });
   app.onError(errorHandler);
 
   app.route("/products", productRoutes);
   app.route("/access", accessRoutes);
   app.route("/sales", saleRoutes);
-  app.route("/devices", deviceRoutes);
-  app.route("/webhooks", pixWebhookRoutes);
 
   return app;
 }

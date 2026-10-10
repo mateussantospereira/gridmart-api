@@ -5,26 +5,6 @@ CREATE TABLE `access_logs` (
 	`createdAt` text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `devices` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`kind` text NOT NULL,
-	`name` text NOT NULL,
-	`token` text NOT NULL,
-	`createdAt` text NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `devices_token_unique` ON `devices` (`token`);--> statement-breakpoint
-CREATE TABLE `door_commands` (
-	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`visitId` integer NOT NULL,
-	`kind` text NOT NULL,
-	`status` text DEFAULT 'PENDING' NOT NULL,
-	`createdAt` text NOT NULL,
-	`expiresAt` text NOT NULL,
-	`executedAt` text,
-	FOREIGN KEY (`visitId`) REFERENCES `visits`(`id`) ON UPDATE no action ON DELETE no action
-);
---> statement-breakpoint
 CREATE TABLE `products` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`barcode` text NOT NULL,
@@ -48,8 +28,6 @@ CREATE TABLE `sales` (
 	`visitId` integer NOT NULL,
 	`totalInCents` integer NOT NULL,
 	`status` text DEFAULT 'PENDING' NOT NULL,
-	`pixTxid` text,
-	`pixQrCode` text,
 	`createdAt` text NOT NULL,
 	FOREIGN KEY (`visitId`) REFERENCES `visits`(`id`) ON UPDATE no action ON DELETE no action
 );

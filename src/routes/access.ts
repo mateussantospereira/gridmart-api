@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { isValidCPF } from "../../utils/cpf";
-import type { Env } from "../../utils/api";
+import { isValidCPF } from "../utils/cpf";
+import type { Env } from "../utils/api";
 
 export const accessRoutes = new Hono<Env>();
 
@@ -23,7 +23,7 @@ accessRoutes.post(
   },
 );
 
-// 3. Abre a porta e cria a visita
+// 3. Entrada: cria a visita
 accessRoutes.post("/enter", zValidator("json", z.object({ cpf: cpfSchema })), async (c) =>
   c.json(await c.get("services").access.enter(c.req.valid("json").cpf)),
 );
@@ -33,7 +33,7 @@ accessRoutes.post("/exit-token", zValidator("json", z.object({ saleId: z.number(
   c.json(await c.get("services").access.createExitToken(c.req.valid("json").saleId)),
 );
 
-// 5. Lê o token na porta e libera a saída
+// 5. Sai usando o token (uso único)
 accessRoutes.post("/exit", zValidator("json", z.object({ token: z.string().min(1) })), async (c) =>
   c.json(await c.get("services").access.exit(c.req.valid("json").token)),
 );

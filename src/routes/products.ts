@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { createInsertSchema } from "drizzle-zod";
-import { products } from "../../db/schema";
-import { or404, paramId, type Env } from "../../utils/api";
+import { products } from "../db/schema";
+import { or404, paramId, type Env } from "../utils/api";
 
 export const productRoutes = new Hono<Env>();
 const schema = createInsertSchema(products).omit({ id: true });

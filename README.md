@@ -11,6 +11,19 @@ API edge-first para lojas autônomas e micro-mercados inteligentes (totem de aut
 - **ORM**: [Drizzle ORM](https://orm.drizzle.team/)
 - **Validação**: [Zod](https://zod.dev) & [drizzle-zod](https://orm.drizzle.team/docs/zod)
 
+## 📁 Estrutura
+
+```
+src/
+├── index.ts            # monta o app
+├── routes/             # rotas (products, access, sales)
+├── services/           # regras da loja
+├── db/schema.ts        # banco de dados
+├── utils/              # api (banco/helpers) e cpf
+├── middlewares/        # tratamento de erros
+└── flow.test.ts        # teste do fluxo completo
+```
+
 ## 🚀 Como Rodar Localmente
 
 1. **Instalar dependências**:
@@ -45,22 +58,36 @@ API edge-first para lojas autônomas e micro-mercados inteligentes (totem de aut
    bun run db:migrate  # Aplica as migrações no D1 local
    ```
 
-## 📦 Módulos da API
+## 📦 Rotas da API
 
-- **Produtos** (`/products`): Cadastro e consulta por ID ou código de barras (leitor do totem).
-- **Acesso** (`/access`): Validação de CPF, cadastro, **entrada** (abre a porta e cria a visita) e **saída** com token de uso único.
-- **Vendas** (`/sales`): Carrinho do totem → venda + cobrança Pix; polling de status.
-- **Dispositivos** (`/devices`): Fila de comandos da porta consumida pelo ESP32/ponte (autenticação por token).
-- **Webhooks** (`/webhooks/pix`): Confirmação de pagamento do provedor Pix (fake no MVP).
+### Produtos (`/products`)
+- `GET /` — lista todos
+- `GET /:id` — um produto
+- `GET /barcode/:barcode` — por código de barras (leitor do totem)
+- `POST /` `{barcode, name, priceInCents}` — cria
+- `PUT /:id` — atualiza
+- `DELETE /:id` — remove
+
+### Acesso (`/access`)
+- `POST /check` `{cpf}` — o CPF já é cadastrado? (para saber se pede o nome)
+- `POST /register` `{cpf, name}` — cadastro do 1º acesso
+- `POST /enter` `{cpf}` — entra na loja (cria a visita)
+- `POST /exit-token` `{saleId}` — gera token de saída (uso único, 25s)
+- `POST /exit` `{token}` — sai usando o token
+
+### Vendas (`/sales`)
+- `POST /` `{cpf, items:[{productId, quantity}]}` — monta a venda (`PENDING`)
+- `GET /:id` — status da venda
+- `POST /:id/pay` — confirma o pagamento **manualmente** (dev; no futuro será o webhook do Pix)
 
 ## 🔄 Fluxo (MVP)
 
 1. Cliente lê o QR da porta → `POST /access/check` (e `register` se for a 1ª vez).
-2. `POST /access/enter` → cria a **visita** e enfileira o comando `ENTRY` na porta.
-3. O totem monta o carrinho → `POST /sales` → vira uma cobrança Pix (`PENDING`).
-4. Pagamento confirmado chega em `POST /webhooks/pix` → venda `PAID` (totem acompanha via `GET /sales/:id`).
+2. `POST /access/enter` → cria a **visita** (pessoa está dentro).
+3. O totem monta o carrinho → `POST /sales` → venda `PENDING`.
+4. `POST /sales/:id/pay` confirma o pagamento → venda `PAID`.
 5. `POST /access/exit-token` → gera token de saída (uso único, 25s).
-6. `POST /access/exit` → valida o token, fecha a visita e enfileira o comando `EXIT`.
+6. `POST /access/exit` → valida o token e fecha a visita.
 
-> A porta (a leitura da fila) ainda é **mockada**: o ESP32/ponte vai consumir `GET /devices/commands` + `POST /devices/commands/:id/ack` com o header `x-device-token`. O Pix também é **fake** (payload local + webhook manual) — portas/adapters prontos para plugar o provedor real.
+> O **ESP32** (abertura da porta) e o **Pix real** ficaram para depois: a porta ainda não é controlada pela API, e o pagamento é confirmado manualmente em `POST /sales/:id/pay`.
 

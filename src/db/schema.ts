@@ -19,16 +19,7 @@ export const products = sqliteTable("products", {
   priceInCents: integer().notNull(),
 });
 
-// 3. DISPOSITIVOS (a porta e o totem falam com a API usando um token)
-export const devices = sqliteTable("devices", {
-  id: integer().primaryKey({ autoIncrement: true }),
-  kind: text().notNull(), // 'DOOR' | 'TOTEM'
-  name: text().notNull(),
-  token: text().notNull().unique(),
-  createdAt: text().notNull().$defaultFn(now),
-});
-
-// 4. VISITAS (a "sessão" de uma pessoa dentro da loja)
+// 3. VISITAS (a "sessão" de uma pessoa dentro da loja)
 export const visits = sqliteTable("visits", {
   id: integer().primaryKey({ autoIncrement: true }),
   userId: integer()
@@ -41,20 +32,18 @@ export const visits = sqliteTable("visits", {
   exitedAt: text(),
 });
 
-// 5. VENDAS (cabeçalho da transação do totem)
+// 4. VENDAS (cabeçalho da transação do totem)
 export const sales = sqliteTable("sales", {
   id: integer().primaryKey({ autoIncrement: true }),
   visitId: integer()
     .notNull()
     .references(() => visits.id),
   totalInCents: integer().notNull(),
-  status: text().notNull().default("PENDING"), // 'PENDING' | 'PAID' | 'EXPIRED'
-  pixTxid: text(),
-  pixQrCode: text(),
+  status: text().notNull().default("PENDING"), // 'PENDING' | 'PAID'
   createdAt: text().notNull().$defaultFn(now),
 });
 
-// 6. ITENS DA VENDA (carrinho consolidado por produto)
+// 5. ITENS DA VENDA (carrinho consolidado por produto)
 export const saleItems = sqliteTable("sale_items", {
   id: integer().primaryKey({ autoIncrement: true }),
   saleId: integer()
@@ -67,20 +56,7 @@ export const saleItems = sqliteTable("sale_items", {
   quantity: integer().notNull(),
 });
 
-// 7. COMANDOS DE PORTA (fila consumida pela porta / ponte local)
-export const doorCommands = sqliteTable("door_commands", {
-  id: integer().primaryKey({ autoIncrement: true }),
-  visitId: integer()
-    .notNull()
-    .references(() => visits.id),
-  kind: text().notNull(), // 'ENTRY' | 'EXIT'
-  status: text().notNull().default("PENDING"), // 'PENDING' | 'DONE' | 'EXPIRED'
-  createdAt: text().notNull().$defaultFn(now),
-  expiresAt: text().notNull(),
-  executedAt: text(),
-});
-
-// 8. LOGS DE ACESSO (auditoria da trava da porta)
+// 6. LOGS DE ACESSO (auditoria de entrada/saída)
 export const accessLogs = sqliteTable("access_logs", {
   id: integer().primaryKey({ autoIncrement: true }),
   cpf: text().notNull(),
