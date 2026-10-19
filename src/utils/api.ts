@@ -3,7 +3,7 @@ import type { Context } from "hono";
 import type { Services } from "../services";
 
 export type Env = {
-  Bindings: { DB: D1Database };
+  Bindings: { DB: D1Database; ADMIN_TOKEN?: string };
   Variables: { services: Services };
 };
 

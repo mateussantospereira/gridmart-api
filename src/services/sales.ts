@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { products, saleItems, sales, users, visits } from "../db/schema";
 import type { DB } from "../utils/api";
@@ -119,5 +119,28 @@ export class SalesService {
     const visit = await this.db.select().from(visits).where(eq(visits.id, updated.visitId)).get();
 
     return { id: updated.publicId, visitId: visit?.publicId ?? null, totalInCents: updated.totalInCents, status: updated.status };
+  }
+
+  // ── Administração ──────────────────────────────────────────────────────
+
+  /** Lista vendas; `status` filtra por PENDING/PAID (default: todas). */
+  async list(status?: string) {
+    const query = this.db
+      .select({
+        id: sales.publicId,
+        visitId: visits.publicId,
+        userCpf: users.cpf,
+        userName: users.name,
+        totalInCents: sales.totalInCents,
+        status: sales.status,
+        createdAt: sales.createdAt,
+      })
+      .from(sales)
+      .innerJoin(visits, eq(sales.visitId, visits.id))
+      .innerJoin(users, eq(visits.userId, users.id))
+      .orderBy(desc(sales.id))
+      .$dynamic();
+
+    return (status ? query.where(eq(sales.status, status)) : query).all();
   }
 }

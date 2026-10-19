@@ -6,6 +6,7 @@ import { errorHandler } from "./middlewares/errorHandler";
 import { productRoutes } from "./routes/products";
 import { accessRoutes } from "./routes/access";
 import { saleRoutes } from "./routes/sales";
+import { adminRoutes } from "./routes/admin";
 
 /**
  * Monta o app. O `makeDb` permite trocar o banco nos testes
@@ -23,6 +24,7 @@ export function createApp(makeDb: (c: Context<Env>) => DB = (c) => createDb(c.en
   app.route("/products", productRoutes);
   app.route("/access", accessRoutes);
   app.route("/sales", saleRoutes);
+  app.route("/admin", adminRoutes);
 
   return app;
 }

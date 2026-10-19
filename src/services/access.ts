@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { HTTPException } from "hono/http-exception";
 import { accessLogs, sales, users, visits } from "../db/schema";
 import type { DB } from "../utils/api";
@@ -89,5 +89,87 @@ export class AccessService {
 
   private log(cpf: string, status: "GRANTED" | "DENIED") {
     return this.db.insert(accessLogs).values({ cpf, status }).run();
+  }
+
+  // ── Administração ──────────────────────────────────────────────────────
+
+  /** Lista visitas; `status` filtra por OPEN/CLOSED (default: todas). */
+  async listVisits(status?: string) {
+    const query = this.db
+      .select({
+        id: visits.publicId,
+        userId: users.publicId,
+        userCpf: users.cpf,
+        userName: users.name,
+        status: visits.status,
+        enteredAt: visits.enteredAt,
+        exitedAt: visits.exitedAt,
+      })
+      .from(visits)
+      .innerJoin(users, eq(visits.userId, users.id))
+      .$dynamic();
+
+    return (status ? query.where(eq(visits.status, status)) : query).all();
+  }
+
+  /** Fecha uma visita manualmente (ex.: cliente saiu pela botoeira). */
+  async closeVisit(publicId: string | null) {
+    if (!publicId) throw new HTTPException(404, { message: "Visita não encontrada" });
+
+    const visit = await this.db.select().from(visits).where(eq(visits.publicId, publicId)).get();
+    if (!visit) throw new HTTPException(404, { message: "Visita não encontrada" });
+    if (visit.status === "CLOSED") return { visitId: visit.publicId, status: visit.status };
+
+    await this.db
+      .update(visits)
+      .set({ status: "CLOSED", exitedAt: new Date().toISOString(), exitToken: null, exitTokenExpiresAt: null })
+      .where(eq(visits.id, visit.id))
+      .run();
+
+    return { visitId: visit.publicId, status: "CLOSED" };
+  }
+
+  /** Bloqueia/desbloqueia um cliente. */
+  async setBlocked(publicId: string | null, isBlocked: boolean) {
+    if (!publicId) throw new HTTPException(404, { message: "Usuário não encontrado" });
+
+    const user = await this.db
+      .update(users)
+      .set({ isBlocked })
+      .where(eq(users.publicId, publicId))
+      .returning({ id: users.publicId, name: users.name, isBlocked: users.isBlocked })
+      .get();
+    if (!user) throw new HTTPException(404, { message: "Usuário não encontrado" });
+
+    return user;
+  }
+
+  /** Lista usuários cadastrados. */
+  async listUsers() {
+    return this.db
+      .select({
+        id: users.publicId,
+        cpf: users.cpf,
+        name: users.name,
+        isBlocked: users.isBlocked,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .all();
+  }
+
+  /** Auditoria de acessos, mais recentes primeiro. */
+  async listAccessLogs(limit = 100) {
+    return this.db
+      .select({
+        id: accessLogs.publicId,
+        cpf: accessLogs.cpf,
+        status: accessLogs.status,
+        createdAt: accessLogs.createdAt,
+      })
+      .from(accessLogs)
+      .orderBy(desc(accessLogs.id))
+      .limit(limit)
+      .all();
   }
 }

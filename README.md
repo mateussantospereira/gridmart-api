@@ -70,13 +70,10 @@ retorna 404.
 
 ## 📦 Rotas da API
 
-### Produtos (`/products`)
+### Produtos (`/products`) — catálogo público, somente leitura
 - `GET /` — lista todos
 - `GET /:publicId` — um produto (UUID)
 - `GET /barcode/:barcode` — por código de barras (leitor do totem)
-- `POST /` `{barcode, name, priceInCents}` — cria
-- `PUT /:publicId` — atualiza
-- `DELETE /:publicId` — remove
 
 ### Acesso (`/access`)
 - `POST /check` `{cpf}` — o CPF já é cadastrado? (para saber se pede o nome)
@@ -88,16 +85,30 @@ retorna 404.
 ### Vendas (`/sales`)
 - `POST /` `{cpf, items:[{productId, quantity}]}` — monta a venda (`PENDING`) — `productId` é UUID
 - `GET /:publicId` — status da venda
-- `POST /:publicId/pay` — confirma o pagamento **manualmente** (dev; no futuro será o webhook do Pix)
+
+### Admin (`/admin`) — requer o header `x-admin-token`
+
+Toda a **escrita** vive aqui. O catálogo público é somente leitura.
+
+- `GET|POST /products`, `PUT|DELETE /products/:publicId` — CRUD do catálogo
+- `GET /sales?status=PENDING|PAID` — lista vendas
+- `POST /sales/:publicId/pay` — confirma o pagamento (no lugar do webhook do Pix)
+- `GET /visits?status=OPEN|CLOSED`, `POST /visits/:publicId/close` — quem está dentro / fechar visita
+- `GET /users`, `POST /users/:publicId/block` `{isBlocked}` — clientes
+- `GET /access-logs?limit=100` — auditoria de acesso
+
+> **Segurança:** o token é comparado em tempo constante e a rota falha **fechada**
+> (se `ADMIN_TOKEN` não estiver configurado, nega tudo). Em dev o valor está em
+> `wrangler.jsonc`; em produção use `wrangler secret put ADMIN_TOKEN`.
 
 ## 🔄 Fluxo (MVP)
 
 1. Cliente lê o QR da porta → `POST /access/check` (e `register` se for a 1ª vez).
 2. `POST /access/enter` → cria a **visita** (pessoa está dentro).
 3. O totem monta o carrinho → `POST /sales` → venda `PENDING`.
-4. `POST /sales/:publicId/pay` confirma o pagamento → venda `PAID`.
+4. `POST /admin/sales/:publicId/pay` confirma o pagamento → venda `PAID`.
 5. `POST /access/exit-token` → gera token de saída (uso único, 25s).
 6. `POST /access/exit` → valida o token e fecha a visita.
 
-> O **ESP32** (abertura da porta) e o **Pix real** ficaram para depois: a porta ainda não é controlada pela API, e o pagamento é confirmado manualmente em `POST /sales/:publicId/pay`.
+> O **ESP32** (abertura da porta) e o **Pix real** ficaram para depois: a porta ainda não é controlada pela API, e o pagamento é confirmado pelo admin em `POST /admin/sales/:publicId/pay`.
 

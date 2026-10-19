@@ -24,12 +24,10 @@ saleRoutes.post("/", zValidator("json", buySchema), async (c) => {
   return c.json(await c.get("services").sales.create(cpf, items), 201);
 });
 
-// 2. Status da venda
+// 2. Status da venda (o totem acompanha o pagamento)
 saleRoutes.get("/:publicId", async (c) =>
   c.json(await c.get("services").sales.get(paramPublicId(c))),
 );
 
-// 3. Confirma o pagamento MANUALMENTE (dev) — no lugar do webhook do Pix
-saleRoutes.post("/:publicId/pay", async (c) =>
-  c.json(await c.get("services").sales.pay(paramPublicId(c))),
-);
+// O pagamento NÃO é confirmado aqui: agora só o admin confirma
+// (POST /admin/sales/:publicId/pay). No futuro, o webhook do Pix assume isso.

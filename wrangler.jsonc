@@ -10,5 +10,10 @@
       "database_id": "local-d1",
       "migrations_dir": "drizzle"
     }
-  ]
+  ],
+  // Token do admin em desenvolvimento. Em produção use:
+  //   wrangler secret put ADMIN_TOKEN
+  "vars": {
+    "ADMIN_TOKEN": "dev-admin-token"
+  }
 }
