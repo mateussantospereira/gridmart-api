@@ -5,7 +5,7 @@ import type { DB } from "../utils/api";
 export type ProductInput = typeof products.$inferInsert;
 
 export class ProductService {
-  constructor(private db: DB) {}
+  constructor(private db: DB) { }
 
   list() {
     return this.db.select().from(products).all();
