@@ -1,0 +1,4 @@
+[test]
+# Sem watch mode: `bun test` roda uma vez e sai (evita parecer "travado").
+# Para ficar observando mudanças, use `bun test --watch`.
+watch = false

@@ -22,7 +22,7 @@ export class AccessService {
   async register(cpfRaw: string, name: string) {
     const cpf = normalize(cpfRaw);
     const user = await this.db.insert(users).values({ cpf, name }).returning().get();
-    return { registered: true, allowed: true, name: user.name, userId: user.publicId };
+    return { registered: true, allowed: true, name: user.name, userId: user.id };
   }
 
   /** Marca a entrada: cria a visita (a pessoa passa a estar "dentro"). */
@@ -46,12 +46,14 @@ export class AccessService {
     const visit = await this.db.insert(visits).values({ userId: user.id }).returning().get();
     await this.log(cpf, "GRANTED");
 
-    return { visitId: visit.publicId, name: user.name };
+    return { visitId: visit.id, name: user.name };
   }
 
   /** Gera o token de uso único para a saída (só depois do pagamento confirmado). */
-  async createExitToken(saleId: string) {
-    const sale = await this.db.select().from(sales).where(eq(sales.publicId, saleId)).get();
+  async createExitToken(saleId: number | null) {
+    if (!saleId) throw new HTTPException(404, { message: "Venda não encontrada" });
+
+    const sale = await this.db.select().from(sales).where(eq(sales.id, saleId)).get();
     if (!sale) throw new HTTPException(404, { message: "Venda não encontrada" });
     if (sale.status !== "PAID") throw new HTTPException(409, { message: "Pagamento ainda não confirmado" });
 
@@ -84,7 +86,7 @@ export class AccessService {
       .run();
     await this.log(user?.cpf ?? String(visit.userId), "GRANTED");
 
-    return { visitId: visit.publicId };
+    return { visitId: visit.id };
   }
 
   private log(cpf: string, status: "GRANTED" | "DENIED") {
@@ -97,8 +99,8 @@ export class AccessService {
   async listVisits(status?: string) {
     const query = this.db
       .select({
-        id: visits.publicId,
-        userId: users.publicId,
+        id: visits.id,
+        userId: users.id,
         userCpf: users.cpf,
         userName: users.name,
         status: visits.status,
@@ -113,12 +115,12 @@ export class AccessService {
   }
 
   /** Fecha uma visita manualmente (ex.: cliente saiu pela botoeira). */
-  async closeVisit(publicId: string | null) {
-    if (!publicId) throw new HTTPException(404, { message: "Visita não encontrada" });
+  async closeVisit(id: number | null) {
+    if (!id) throw new HTTPException(404, { message: "Visita não encontrada" });
 
-    const visit = await this.db.select().from(visits).where(eq(visits.publicId, publicId)).get();
+    const visit = await this.db.select().from(visits).where(eq(visits.id, id)).get();
     if (!visit) throw new HTTPException(404, { message: "Visita não encontrada" });
-    if (visit.status === "CLOSED") return { visitId: visit.publicId, status: visit.status };
+    if (visit.status === "CLOSED") return { visitId: visit.id, status: visit.status };
 
     await this.db
       .update(visits)
@@ -126,18 +128,18 @@ export class AccessService {
       .where(eq(visits.id, visit.id))
       .run();
 
-    return { visitId: visit.publicId, status: "CLOSED" };
+    return { visitId: visit.id, status: "CLOSED" };
   }
 
   /** Bloqueia/desbloqueia um cliente. */
-  async setBlocked(publicId: string | null, isBlocked: boolean) {
-    if (!publicId) throw new HTTPException(404, { message: "Usuário não encontrado" });
+  async setBlocked(id: number | null, isBlocked: boolean) {
+    if (!id) throw new HTTPException(404, { message: "Usuário não encontrado" });
 
     const user = await this.db
       .update(users)
       .set({ isBlocked })
-      .where(eq(users.publicId, publicId))
-      .returning({ id: users.publicId, name: users.name, isBlocked: users.isBlocked })
+      .where(eq(users.id, id))
+      .returning({ id: users.id, name: users.name, isBlocked: users.isBlocked })
       .get();
     if (!user) throw new HTTPException(404, { message: "Usuário não encontrado" });
 
@@ -148,7 +150,7 @@ export class AccessService {
   async listUsers() {
     return this.db
       .select({
-        id: users.publicId,
+        id: users.id,
         cpf: users.cpf,
         name: users.name,
         isBlocked: users.isBlocked,
@@ -162,7 +164,7 @@ export class AccessService {
   async listAccessLogs(limit = 100) {
     return this.db
       .select({
-        id: accessLogs.publicId,
+        id: accessLogs.id,
         cpf: accessLogs.cpf,
         status: accessLogs.status,
         createdAt: accessLogs.createdAt,

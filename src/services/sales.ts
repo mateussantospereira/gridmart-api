@@ -6,7 +6,7 @@ import type { DB } from "../utils/api";
 const clean = (cpf: string) => cpf.replace(/\D/g, "");
 
 export interface CartItem {
-  productId: string; // publicId do produto
+  productId: number;
   quantity: number;
 }
 
@@ -28,12 +28,12 @@ export class SalesService {
 
     // Resolve os produtos em uma única query (evita N+1 no totem).
     const productIds = [...new Set(items.map((item) => item.productId))];
-    const found = await this.db.select().from(products).where(inArray(products.publicId, productIds));
-    const byPublicId = new Map(found.map((product) => [product.publicId, product]));
+    const found = await this.db.select().from(products).where(inArray(products.id, productIds));
+    const byId = new Map(found.map((product) => [product.id, product]));
 
     let totalInCents = 0;
     const verified = items.map((item) => {
-      const product = byPublicId.get(item.productId);
+      const product = byId.get(item.productId);
       if (!product) throw new HTTPException(404, { message: `Produto ${item.productId} não encontrado` });
 
       totalInCents += product.priceInCents * item.quantity;
@@ -59,12 +59,12 @@ export class SalesService {
       .run();
 
     return {
-      id: sale.publicId,
-      visitId: visit.publicId,
+      id: sale.id,
+      visitId: visit.id,
       totalInCents,
       status: sale.status,
       items: verified.map(({ product, quantity }) => ({
-        productId: product.publicId,
+        productId: product.id,
         name: product.name,
         priceInCents: product.priceInCents,
         quantity,
@@ -73,16 +73,15 @@ export class SalesService {
   }
 
   /** Detalhe da venda (o totem acompanha o status). */
-  async get(publicId: string | null) {
-    if (!publicId) throw new HTTPException(404, { message: "Venda não encontrada" });
+  async get(id: number | null) {
+    if (!id) throw new HTTPException(404, { message: "Venda não encontrada" });
 
-    const sale = await this.db.select().from(sales).where(eq(sales.publicId, publicId)).get();
+    const sale = await this.db.select().from(sales).where(eq(sales.id, id)).get();
     if (!sale) throw new HTTPException(404, { message: "Venda não encontrada" });
 
-    const visit = await this.db.select().from(visits).where(eq(visits.id, sale.visitId)).get();
     const items = await this.db
       .select({
-        productId: products.publicId,
+        productId: products.id,
         name: products.name,
         priceInCents: saleItems.priceInCents,
         quantity: saleItems.quantity,
@@ -92,33 +91,24 @@ export class SalesService {
       .where(eq(saleItems.saleId, sale.id))
       .all();
 
-    return {
-      id: sale.publicId,
-      visitId: visit?.publicId ?? null,
-      totalInCents: sale.totalInCents,
-      status: sale.status,
-      items,
-    };
+    return { id: sale.id, visitId: sale.visitId, totalInCents: sale.totalInCents, status: sale.status, items };
   }
 
   /**
    * Confirma o pagamento manualmente (só para testar o fluxo).
    * Quando ligarmos o Pix de verdade, isso vira o webhook do provedor.
    */
-  async pay(publicId: string | null) {
-    if (!publicId) throw new HTTPException(404, { message: "Venda não encontrada" });
+  async pay(id: number | null) {
+    if (!id) throw new HTTPException(404, { message: "Venda não encontrada" });
 
-    const sale = await this.db.select().from(sales).where(eq(sales.publicId, publicId)).get();
+    const sale = await this.db.select().from(sales).where(eq(sales.id, id)).get();
     if (!sale) throw new HTTPException(404, { message: "Venda não encontrada" });
-    if (sale.status === "PAID") {
-      const visit = await this.db.select().from(visits).where(eq(visits.id, sale.visitId)).get();
-      return { id: sale.publicId, visitId: visit?.publicId ?? null, totalInCents: sale.totalInCents, status: sale.status };
+
+    if (sale.status !== "PAID") {
+      await this.db.update(sales).set({ status: "PAID" }).where(eq(sales.id, sale.id)).run();
     }
 
-    const updated = await this.db.update(sales).set({ status: "PAID" }).where(eq(sales.id, sale.id)).returning().get();
-    const visit = await this.db.select().from(visits).where(eq(visits.id, updated.visitId)).get();
-
-    return { id: updated.publicId, visitId: visit?.publicId ?? null, totalInCents: updated.totalInCents, status: updated.status };
+    return { id: sale.id, visitId: sale.visitId, totalInCents: sale.totalInCents, status: "PAID" };
   }
 
   // ── Administração ──────────────────────────────────────────────────────
@@ -127,8 +117,8 @@ export class SalesService {
   async list(status?: string) {
     const query = this.db
       .select({
-        id: sales.publicId,
-        visitId: visits.publicId,
+        id: sales.id,
+        visitId: visits.id,
         userCpf: users.cpf,
         userName: users.name,
         totalInCents: sales.totalInCents,

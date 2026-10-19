@@ -2,14 +2,6 @@ import { eq } from "drizzle-orm";
 import { products } from "../db/schema";
 import type { DB } from "../utils/api";
 
-/** Colunas expostas pela API: `publicId` no lugar do `id` interno. */
-export const productPublicColumns = {
-  id: products.publicId,
-  barcode: products.barcode,
-  name: products.name,
-  priceInCents: products.priceInCents,
-};
-
 export type ProductInput = {
   barcode: string;
   name: string;
@@ -20,34 +12,29 @@ export class ProductService {
   constructor(private db: DB) {}
 
   list() {
-    return this.db.select(productPublicColumns).from(products).all();
+    return this.db.select().from(products).all();
   }
 
-  byPublicId(publicId: string | null) {
-    if (!publicId) return undefined;
-    return this.db.select(productPublicColumns).from(products).where(eq(products.publicId, publicId)).get();
+  byId(id: number | null) {
+    if (!id) return undefined;
+    return this.db.select().from(products).where(eq(products.id, id)).get();
   }
 
   byBarcode(barcode: string) {
-    return this.db.select(productPublicColumns).from(products).where(eq(products.barcode, barcode)).get();
+    return this.db.select().from(products).where(eq(products.barcode, barcode)).get();
   }
 
   create(data: ProductInput) {
-    return this.db.insert(products).values(data).returning(productPublicColumns).get();
+    return this.db.insert(products).values(data).returning().get();
   }
 
-  update(publicId: string | null, data: Partial<ProductInput>) {
-    if (!publicId) return undefined;
-    return this.db
-      .update(products)
-      .set(data)
-      .where(eq(products.publicId, publicId))
-      .returning(productPublicColumns)
-      .get();
+  update(id: number | null, data: Partial<ProductInput>) {
+    if (!id) return undefined;
+    return this.db.update(products).set(data).where(eq(products.id, id)).returning().get();
   }
 
-  remove(publicId: string | null) {
-    if (!publicId) return undefined;
-    return this.db.delete(products).where(eq(products.publicId, publicId)).returning(productPublicColumns).get();
+  remove(id: number | null) {
+    if (!id) return undefined;
+    return this.db.delete(products).where(eq(products.id, id)).returning().get();
   }
 }

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { isValidCPF } from "../utils/cpf";
-import type { Env } from "../utils/api";
+import { paramId, type Env } from "../utils/api";
 
 export const accessRoutes = new Hono<Env>();
 
@@ -28,10 +28,10 @@ accessRoutes.post("/enter", zValidator("json", z.object({ cpf: cpfSchema })), as
   c.json(await c.get("services").access.enter(c.req.valid("json").cpf)),
 );
 
-// 4. Gera o token de saída (após o pagamento) — recebe o publicId da venda
+// 4. Gera o token de saída (após o pagamento) — recebe o id da venda
 accessRoutes.post(
   "/exit-token",
-  zValidator("json", z.object({ saleId: z.uuid() })),
+  zValidator("json", z.object({ saleId: z.number().int().positive() })),
   async (c) => c.json(await c.get("services").access.createExitToken(c.req.valid("json").saleId)),
 );
 

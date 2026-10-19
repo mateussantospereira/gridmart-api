@@ -4,29 +4,27 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { products } from "../db/schema";
 import { adminAuth } from "../middlewares/admin";
-import { or404, paramPublicId, type Env } from "../utils/api";
+import { or404, paramId, type Env } from "../utils/api";
 
 export const adminRoutes = new Hono<Env>();
 
 // Tudo em /admin exige o token secreto.
 adminRoutes.use("*", adminAuth);
 
-const productSchema = createInsertSchema(products).omit({ id: true, publicId: true });
+const productSchema = createInsertSchema(products).omit({ id: true });
 
-// ── Produtos ─────────────────────────────────────────────────────────────
-
-adminRoutes.get("/products", async (c) => c.json(await c.get("services").products.list()));
+// ── Produtos (listar é público; aqui só a escrita) ───────────────────────
 
 adminRoutes.post("/products", zValidator("json", productSchema), async (c) =>
   c.json(await c.get("services").products.create(c.req.valid("json")), 201),
 );
 
-adminRoutes.put("/products/:publicId", zValidator("json", productSchema.partial()), async (c) =>
-  or404(c, await c.get("services").products.update(paramPublicId(c), c.req.valid("json"))),
+adminRoutes.put("/products/:id", zValidator("json", productSchema.partial()), async (c) =>
+  or404(c, await c.get("services").products.update(paramId(c), c.req.valid("json"))),
 );
 
-adminRoutes.delete("/products/:publicId", async (c) =>
-  or404(c, await c.get("services").products.remove(paramPublicId(c))),
+adminRoutes.delete("/products/:id", async (c) =>
+  or404(c, await c.get("services").products.remove(paramId(c))),
 );
 
 // ── Vendas ───────────────────────────────────────────────────────────────
@@ -38,9 +36,9 @@ adminRoutes.get("/sales", async (c) =>
 // Muda o estado da venda. Por enquanto só PENDING -> PAID
 // (a confirmação manual no lugar do webhook do Pix).
 adminRoutes.put(
-  "/sales/:publicId",
+  "/sales/:id",
   zValidator("json", z.object({ status: z.literal("PAID") })),
-  async (c) => c.json(await c.get("services").sales.pay(paramPublicId(c))),
+  async (c) => c.json(await c.get("services").sales.pay(paramId(c))),
 );
 
 // ── Visitas ──────────────────────────────────────────────────────────────
@@ -51,9 +49,9 @@ adminRoutes.get("/visits", async (c) =>
 
 // Fecha a visita (ex.: o cliente saiu pela botoeira).
 adminRoutes.put(
-  "/visits/:publicId",
+  "/visits/:id",
   zValidator("json", z.object({ status: z.literal("CLOSED") })),
-  async (c) => c.json(await c.get("services").access.closeVisit(paramPublicId(c))),
+  async (c) => c.json(await c.get("services").access.closeVisit(paramId(c))),
 );
 
 // ── Usuários ─────────────────────────────────────────────────────────────
@@ -62,10 +60,9 @@ adminRoutes.get("/users", async (c) => c.json(await c.get("services").access.lis
 
 // Bloqueia/desbloqueia o cliente.
 adminRoutes.put(
-  "/users/:publicId",
+  "/users/:id",
   zValidator("json", z.object({ isBlocked: z.boolean() })),
-  async (c) =>
-    c.json(await c.get("services").access.setBlocked(paramPublicId(c), c.req.valid("json").isBlocked)),
+  async (c) => c.json(await c.get("services").access.setBlocked(paramId(c), c.req.valid("json").isBlocked)),
 );
 
 // ── Auditoria ────────────────────────────────────────────────────────────
