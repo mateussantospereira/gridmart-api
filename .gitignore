@@ -33,6 +33,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # cloudflare wrangler local state
 .wrangler
 
+# wrangler secrets de desenvolvimento local (NÃO commitar)
+.dev.vars
+
 # IntelliJ based IDEs
 .idea
 

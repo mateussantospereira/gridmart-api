@@ -8,6 +8,7 @@
     "deploy": "wrangler deploy",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "wrangler d1 migrations apply gridmart-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply gridmart-db --remote",
     "db:seed": "wrangler d1 execute gridmart-db --local --file=./db/seed.sql",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
