@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { isValidCPF } from "../utils/cpf";
-import { paramId, type Env } from "../utils/api";
+import { paramPublicId, type Env } from "../utils/api";
 
 export const saleRoutes = new Hono<Env>();
 
@@ -11,7 +11,7 @@ const buySchema = z.object({
   items: z
     .array(
       z.object({
-        productId: z.number().int().positive(),
+        productId: z.uuid(),
         quantity: z.number().int().positive().default(1),
       }),
     )
@@ -25,7 +25,11 @@ saleRoutes.post("/", zValidator("json", buySchema), async (c) => {
 });
 
 // 2. Status da venda
-saleRoutes.get("/:id", async (c) => c.json(await c.get("services").sales.get(paramId(c))));
+saleRoutes.get("/:publicId", async (c) =>
+  c.json(await c.get("services").sales.get(paramPublicId(c))),
+);
 
 // 3. Confirma o pagamento MANUALMENTE (dev) — no lugar do webhook do Pix
-saleRoutes.post("/:id/pay", async (c) => c.json(await c.get("services").sales.pay(paramId(c))));
+saleRoutes.post("/:publicId/pay", async (c) =>
+  c.json(await c.get("services").sales.pay(paramPublicId(c))),
+);

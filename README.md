@@ -58,36 +58,46 @@ src/
    bun run db:migrate  # Aplica as migrações no D1 local
    ```
 
+## 🔑 Identidade pública (UUID)
+
+O `id` interno (inteiro) é só para joins/FKs e **nunca aparece** nas respostas.
+A API expõe `publicId` (UUID v4) em todas as tabelas — o campo `id` das respostas
+é o UUID. Aceita-se apenas UUID nas rotas com `:publicId`; qualquer outra coisa
+retorna 404.
+
+> O UUID é gerado pelo **banco** (default SQL), então inserts fora do Drizzle
+> (seed, scripts, ESP32) também ganham `publicId` automaticamente.
+
 ## 📦 Rotas da API
 
 ### Produtos (`/products`)
 - `GET /` — lista todos
-- `GET /:id` — um produto
+- `GET /:publicId` — um produto (UUID)
 - `GET /barcode/:barcode` — por código de barras (leitor do totem)
 - `POST /` `{barcode, name, priceInCents}` — cria
-- `PUT /:id` — atualiza
-- `DELETE /:id` — remove
+- `PUT /:publicId` — atualiza
+- `DELETE /:publicId` — remove
 
 ### Acesso (`/access`)
 - `POST /check` `{cpf}` — o CPF já é cadastrado? (para saber se pede o nome)
-- `POST /register` `{cpf, name}` — cadastro do 1º acesso
-- `POST /enter` `{cpf}` — entra na loja (cria a visita)
-- `POST /exit-token` `{saleId}` — gera token de saída (uso único, 25s)
+- `POST /register` `{cpf, name}` — cadastro do 1º acesso (retorna `userId` UUID)
+- `POST /enter` `{cpf}` — entra na loja (cria a visita, retorna `visitId` UUID)
+- `POST /exit-token` `{saleId}` — gera token de saída (uso único, 25s) — `saleId` é UUID
 - `POST /exit` `{token}` — sai usando o token
 
 ### Vendas (`/sales`)
-- `POST /` `{cpf, items:[{productId, quantity}]}` — monta a venda (`PENDING`)
-- `GET /:id` — status da venda
-- `POST /:id/pay` — confirma o pagamento **manualmente** (dev; no futuro será o webhook do Pix)
+- `POST /` `{cpf, items:[{productId, quantity}]}` — monta a venda (`PENDING`) — `productId` é UUID
+- `GET /:publicId` — status da venda
+- `POST /:publicId/pay` — confirma o pagamento **manualmente** (dev; no futuro será o webhook do Pix)
 
 ## 🔄 Fluxo (MVP)
 
 1. Cliente lê o QR da porta → `POST /access/check` (e `register` se for a 1ª vez).
 2. `POST /access/enter` → cria a **visita** (pessoa está dentro).
 3. O totem monta o carrinho → `POST /sales` → venda `PENDING`.
-4. `POST /sales/:id/pay` confirma o pagamento → venda `PAID`.
+4. `POST /sales/:publicId/pay` confirma o pagamento → venda `PAID`.
 5. `POST /access/exit-token` → gera token de saída (uso único, 25s).
 6. `POST /access/exit` → valida o token e fecha a visita.
 
-> O **ESP32** (abertura da porta) e o **Pix real** ficaram para depois: a porta ainda não é controlada pela API, e o pagamento é confirmado manualmente em `POST /sales/:id/pay`.
+> O **ESP32** (abertura da porta) e o **Pix real** ficaram para depois: a porta ainda não é controlada pela API, e o pagamento é confirmado manualmente em `POST /sales/:publicId/pay`.
 

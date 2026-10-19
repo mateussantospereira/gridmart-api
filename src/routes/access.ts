@@ -28,9 +28,11 @@ accessRoutes.post("/enter", zValidator("json", z.object({ cpf: cpfSchema })), as
   c.json(await c.get("services").access.enter(c.req.valid("json").cpf)),
 );
 
-// 4. Gera o token de saída (após o pagamento)
-accessRoutes.post("/exit-token", zValidator("json", z.object({ saleId: z.number().int().positive() })), async (c) =>
-  c.json(await c.get("services").access.createExitToken(c.req.valid("json").saleId)),
+// 4. Gera o token de saída (após o pagamento) — recebe o publicId da venda
+accessRoutes.post(
+  "/exit-token",
+  zValidator("json", z.object({ saleId: z.uuid() })),
+  async (c) => c.json(await c.get("services").access.createExitToken(c.req.valid("json").saleId)),
 );
 
 // 5. Sai usando o token (uso único)

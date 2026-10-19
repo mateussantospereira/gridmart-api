@@ -22,7 +22,7 @@ export class AccessService {
   async register(cpfRaw: string, name: string) {
     const cpf = normalize(cpfRaw);
     const user = await this.db.insert(users).values({ cpf, name }).returning().get();
-    return { registered: true, allowed: true, name: user.name };
+    return { registered: true, allowed: true, name: user.name, userId: user.publicId };
   }
 
   /** Marca a entrada: cria a visita (a pessoa passa a estar "dentro"). */
@@ -46,12 +46,12 @@ export class AccessService {
     const visit = await this.db.insert(visits).values({ userId: user.id }).returning().get();
     await this.log(cpf, "GRANTED");
 
-    return { visitId: visit.id, name: user.name };
+    return { visitId: visit.publicId, name: user.name };
   }
 
   /** Gera o token de uso único para a saída (só depois do pagamento confirmado). */
-  async createExitToken(saleId: number) {
-    const sale = await this.db.select().from(sales).where(eq(sales.id, saleId)).get();
+  async createExitToken(saleId: string) {
+    const sale = await this.db.select().from(sales).where(eq(sales.publicId, saleId)).get();
     if (!sale) throw new HTTPException(404, { message: "Venda não encontrada" });
     if (sale.status !== "PAID") throw new HTTPException(409, { message: "Pagamento ainda não confirmado" });
 
@@ -60,7 +60,11 @@ export class AccessService {
 
     const token = crypto.randomUUID().replace(/-/g, "");
     const expiresAt = new Date(Date.now() + EXIT_TOKEN_TTL_MS).toISOString();
-    await this.db.update(visits).set({ exitToken: token, exitTokenExpiresAt: expiresAt }).where(eq(visits.id, visit.id)).run();
+    await this.db
+      .update(visits)
+      .set({ exitToken: token, exitTokenExpiresAt: expiresAt })
+      .where(eq(visits.id, visit.id))
+      .run();
 
     return { token, expiresAt };
   }
@@ -80,7 +84,7 @@ export class AccessService {
       .run();
     await this.log(user?.cpf ?? String(visit.userId), "GRANTED");
 
-    return { visitId: visit.id };
+    return { visitId: visit.publicId };
   }
 
   private log(cpf: string, status: "GRANTED" | "DENIED") {
