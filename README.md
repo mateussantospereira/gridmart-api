@@ -89,12 +89,16 @@ retorna 404.
 ### Admin (`/admin`) — requer o header `x-admin-token`
 
 Toda a **escrita** vive aqui. O catálogo público é somente leitura.
+A mudança de estado é sempre `PUT /recurso/:publicId` com um corpo
+descrevendo o novo estado — sem verbos na URL.
 
 - `GET|POST /products`, `PUT|DELETE /products/:publicId` — CRUD do catálogo
 - `GET /sales?status=PENDING|PAID` — lista vendas
-- `POST /sales/:publicId/pay` — confirma o pagamento (no lugar do webhook do Pix)
-- `GET /visits?status=OPEN|CLOSED`, `POST /visits/:publicId/close` — quem está dentro / fechar visita
-- `GET /users`, `POST /users/:publicId/block` `{isBlocked}` — clientes
+- `PUT /sales/:publicId` `{status:"PAID"}` — confirma o pagamento (no lugar do webhook do Pix)
+- `GET /visits?status=OPEN|CLOSED` — quem está dentro
+- `PUT /visits/:publicId` `{status:"CLOSED"}` — fecha a visita
+- `GET /users` — clientes cadastrados
+- `PUT /users/:publicId` `{isBlocked}` — bloqueia/desbloqueia
 - `GET /access-logs?limit=100` — auditoria de acesso
 
 > **Segurança:** o token é comparado em tempo constante e a rota falha **fechada**
@@ -106,9 +110,9 @@ Toda a **escrita** vive aqui. O catálogo público é somente leitura.
 1. Cliente lê o QR da porta → `POST /access/check` (e `register` se for a 1ª vez).
 2. `POST /access/enter` → cria a **visita** (pessoa está dentro).
 3. O totem monta o carrinho → `POST /sales` → venda `PENDING`.
-4. `POST /admin/sales/:publicId/pay` confirma o pagamento → venda `PAID`.
+4. `PUT /admin/sales/:publicId` `{status:"PAID"}` confirma o pagamento → venda `PAID`.
 5. `POST /access/exit-token` → gera token de saída (uso único, 25s).
 6. `POST /access/exit` → valida o token e fecha a visita.
 
-> O **ESP32** (abertura da porta) e o **Pix real** ficaram para depois: a porta ainda não é controlada pela API, e o pagamento é confirmado pelo admin em `POST /admin/sales/:publicId/pay`.
+> O **ESP32** (abertura da porta) e o **Pix real** ficaram para depois: a porta ainda não é controlada pela API, e o pagamento é confirmado pelo admin em `PUT /admin/sales/:publicId`.
 

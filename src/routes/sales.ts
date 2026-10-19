@@ -30,4 +30,4 @@ saleRoutes.get("/:publicId", async (c) =>
 );
 
 // O pagamento NÃO é confirmado aqui: agora só o admin confirma
-// (POST /admin/sales/:publicId/pay). No futuro, o webhook do Pix assume isso.
+// (PUT /admin/sales/:publicId). No futuro, o webhook do Pix assume isso.

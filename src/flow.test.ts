@@ -36,18 +36,22 @@ async function setup() {
     );
 
   /** Chamada autenticada como admin. */
-  const adminPost = (path: string, body?: unknown) =>
+  const adminRequest = (method: string, path: string, body?: unknown) =>
     app.request(
       path,
       {
-        method: "POST",
+        method,
         headers: { "content-type": "application/json", "x-admin-token": ADMIN_TOKEN },
         body: body === undefined ? undefined : JSON.stringify(body),
       },
       env,
     );
 
-  return { app, env, post, adminPost, productId: product.publicId };
+  const adminPost = (path: string, body?: unknown) => adminRequest("POST", path, body);
+  const adminPut = (path: string, body?: unknown) => adminRequest("PUT", path, body);
+  const adminGet = (path: string) => adminRequest("GET", path);
+
+  return { app, env, post, adminPost, adminPut, adminGet, productId: product.publicId };
 }
 
 describe("fluxo da loja autônoma", () => {
@@ -62,7 +66,7 @@ describe("fluxo da loja autônoma", () => {
   });
 
   it("entra, compra, confirma o pagamento, sai e não reaproveita o token", async () => {
-    const { post, adminPost, productId } = await setup();
+    const { post, adminPut, productId } = await setup();
 
     // 1. CPF ainda não cadastrado
     let res = await post("/access/check", { cpf: CPF });
@@ -96,7 +100,7 @@ describe("fluxo da loja autônoma", () => {
     expect(res.status).toBe(409);
 
     // 7. Confirma o pagamento (agora só pelo admin)
-    res = await adminPost(`/admin/sales/${sale.id}/pay`);
+    res = await adminPut(`/admin/sales/${sale.id}`, { status: "PAID" });
     expect(res.status).toBe(200);
     expect(((await res.json()) as { status: string }).status).toBe("PAID");
 
@@ -163,5 +167,37 @@ describe("fluxo da loja autônoma", () => {
       env,
     );
     expect(res.status).toBe(200);
+  });
+
+  it("muda o estado via PUT no recurso (venda, visita, usuário)", async () => {
+    const { post, adminPut, adminGet, productId } = await setup();
+
+    // Prepara: cliente entra e monta uma venda
+    await post("/access/register", { cpf: CPF, name: "Ana" });
+    await post("/access/enter", { cpf: CPF });
+    const sale = (await (await post("/sales", { cpf: CPF, items: [{ productId, quantity: 1 }] })).json()) as {
+      id: string;
+      visitId: string;
+    };
+
+    // Venda: PUT {status:"PAID"}
+    let res = await adminPut(`/admin/sales/${sale.id}`, { status: "PAID" });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { status: string }).status).toBe("PAID");
+
+    // Status não suportado -> 400 (validação do corpo)
+    res = await adminPut(`/admin/sales/${sale.id}`, { status: "CANCELED" });
+    expect(res.status).toBe(400);
+
+    // Visita: PUT {status:"CLOSED"}
+    res = await adminPut(`/admin/visits/${sale.visitId}`, { status: "CLOSED" });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { status: string }).status).toBe("CLOSED");
+
+    // Usuário: PUT {isBlocked:true}
+    const visits = (await (await adminGet(`/admin/visits`)).json()) as Array<{ userId: string }>;
+    res = await adminPut(`/admin/users/${visits[0]!.userId}`, { isBlocked: true });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { isBlocked: boolean }).isBlocked).toBe(true);
   });
 });

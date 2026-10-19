@@ -35,9 +35,12 @@ adminRoutes.get("/sales", async (c) =>
   c.json(await c.get("services").sales.list(c.req.query("status"))),
 );
 
-// Confirmação de pagamento no lugar do webhook do Pix.
-adminRoutes.post("/sales/:publicId/pay", async (c) =>
-  c.json(await c.get("services").sales.pay(paramPublicId(c))),
+// Muda o estado da venda. Por enquanto só PENDING -> PAID
+// (a confirmação manual no lugar do webhook do Pix).
+adminRoutes.put(
+  "/sales/:publicId",
+  zValidator("json", z.object({ status: z.literal("PAID") })),
+  async (c) => c.json(await c.get("services").sales.pay(paramPublicId(c))),
 );
 
 // ── Visitas ──────────────────────────────────────────────────────────────
@@ -46,16 +49,20 @@ adminRoutes.get("/visits", async (c) =>
   c.json(await c.get("services").access.listVisits(c.req.query("status"))),
 );
 
-adminRoutes.post("/visits/:publicId/close", async (c) =>
-  c.json(await c.get("services").access.closeVisit(paramPublicId(c))),
+// Fecha a visita (ex.: o cliente saiu pela botoeira).
+adminRoutes.put(
+  "/visits/:publicId",
+  zValidator("json", z.object({ status: z.literal("CLOSED") })),
+  async (c) => c.json(await c.get("services").access.closeVisit(paramPublicId(c))),
 );
 
 // ── Usuários ─────────────────────────────────────────────────────────────
 
 adminRoutes.get("/users", async (c) => c.json(await c.get("services").access.listUsers()));
 
-adminRoutes.post(
-  "/users/:publicId/block",
+// Bloqueia/desbloqueia o cliente.
+adminRoutes.put(
+  "/users/:publicId",
   zValidator("json", z.object({ isBlocked: z.boolean() })),
   async (c) =>
     c.json(await c.get("services").access.setBlocked(paramPublicId(c), c.req.valid("json").isBlocked)),
