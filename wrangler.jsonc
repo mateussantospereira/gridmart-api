@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "gridmart-db",
-      "database_id": "local-d1",
+      "database_id": "b39ec8c3-908b-4c04-8cd7-b95a20b76978",
       "migrations_dir": "drizzle"
     }
   ]
